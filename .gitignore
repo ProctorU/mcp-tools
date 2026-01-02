@@ -1,0 +1,19 @@
+# Environment
+.env
+
+# Dependencies
+/node_modules/
+
+
+# Ignore custom folders
+tickets/
+discard/
+context/
+/mcp/jira/server1.js
+/mcp/testrail/server1.js
+
+# Ignore everything inside staging/
+staging/**
+
+# …but keep a placeholder file so the folder is tracked
+!staging/.gitkeep

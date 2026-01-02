@@ -1,0 +1,14 @@
+{
+    "mcpServers": {
+        "jira": {
+            "command": "node",
+            "args": ["mcp/jira/server.js"],
+            "envFromFile": ".env"
+        }, 
+        "testrail":{
+            "command": "node",
+            "args":["mcp/testrail/server.js"],
+        "envFromFile":".env"
+    }
+    }
+}

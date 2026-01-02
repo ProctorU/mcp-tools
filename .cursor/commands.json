@@ -1,0 +1,75 @@
+{
+    "commands": {
+        "fetch-jira": {
+            "title": "Fetch Jira ticket Bundle",
+            "description": "Fetch root ticket, linked tickets, attachments, screenshots using JIRA MCP.",
+            "type": "action",
+            "params": [
+                {"name": "ticket", "type": "string", "description": "The ID of the Jira ticket to fetch."}
+            ],
+            "run":"jira.fetchTicketBundle({ticket})",
+            "outputFiles": ["staging/aggregated.json"]
+        },
+        "generate_srs": {
+            "title": "Generate SRS document",
+            "description": "Create SRS.md from Jira datausing SRS rules",
+            "type": "prompt",
+            "prompt":"./prompts/generate_srs.md",
+            "outputFiles": ["staging/srs.md"]
+        },
+        "generate_ui": {
+            "title": "Generate UI document",
+            "description": "Create UI Document using SRS + UI screenshots+ rules.",
+            "type": "prompt",
+            "prompt":"./prompts/generate_ui.md",
+            "outputFiles": ["staging/ui_document.md"]
+        },
+        "generate_tests": {
+            "title": "Generate Test Cases",
+            "description": "Generate Test Cases JSON using SRS + UI + Tests",
+            "type": "prompt",
+            "prompt":"./prompts/generate_tests.md",
+            "outputFiles": ["staging/test_cases.json"]
+        },
+        "generate_tests_csv": {
+            "title": "Generate Test Cases CSV",
+            "description": "Convert test cases from JSON to CSV format",
+            "type": "prompt",
+            "prompt":"./prompts/generate_tests_csv.md",
+            "outputFiles": ["staging/test_cases.csv"]
+        },
+        "generate_all": {
+            "title": "Generate Everything (SRS + UI + Tests)",
+            "type": "sequence",
+            "description": "Fetch Jira --> Generate SRS --> Generate UI --> Generate Tests",
+            "params":[
+                {"name": "ticket", "type": "string"}
+            ],
+            "steps": [
+                "fetch-jira {{ticket}}",
+                "generate_srs",
+                "generate_ui",
+                "generate_tests",
+                "generate_tests_csv"
+            ]
+        },
+        "push_to_testrail": {
+            "title": "Push Test Cases to TestRail",
+            "description": "Push test cases to TestRail using TestRail MCP",
+            "type": "action",
+            "params": [
+                {"name": "sectionId", "type": "string", "description": "The section ID to push the test cases to"}
+            ],
+            "run":"testrail.pushTestRail({sectionId})"
+        },
+        "post_testcases_to_jira": {
+            "title": "Post Test Cases to Jira as Comments",
+            "description": "Post test cases from test_cases.json as comments to a Jira ticket using Jira MCP",
+            "type": "action",
+            "params": [
+                {"name": "ticket", "type": "string", "description": "The Jira ticket ID to post comments to (e.g., PROJ-123)"}
+            ],
+            "run":"jira.postTestCasesToJira({ticket})"
+        }
+    }
+}
