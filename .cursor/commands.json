@@ -70,6 +70,35 @@
                 {"name": "ticket", "type": "string", "description": "The Jira ticket ID to post comments to (e.g., PROJ-123)"}
             ],
             "run":"jira.postTestCasesToJira({ticket})"
+        },
+        "generate_subtasks": {
+            "title": "Generate Subtasks",
+            "description": "Generate subtasks.json from Jira data using subtask rules",
+            "type": "prompt",
+            "prompt": "./prompts/generate_subtasks.md",
+            "outputFiles": ["staging/subtasks.json"]
+        },
+        "push_subtasks_to_jira": {
+            "title": "Push Subtasks to Jira",
+            "description": "Create subtasks on a Jira ticket from staging/subtasks.json",
+            "type": "action",
+            "params": [
+                {"name": "ticket", "type": "string", "description": "The parent Jira ticket ID to create subtasks on (e.g., PROJ-123)"}
+            ],
+            "run": "jira.createSubtasks({ticket})"
+        },
+        "createSubtasks": {
+            "title": "Generate & Push Subtasks to Jira",
+            "description": "Fetch Jira ticket --> Generate subtasks --> Push to Jira",
+            "type": "sequence",
+            "params": [
+                {"name": "ticket", "type": "string", "description": "The Jira ticket ID (e.g., PROJ-123)"}
+            ],
+            "steps": [
+                "fetch-jira {{ticket}}",
+                "generate_subtasks",
+                "push_subtasks_to_jira {{ticket}}"
+            ]
         }
     }
 }

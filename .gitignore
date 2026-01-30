@@ -12,6 +12,7 @@ context/
 /mcp/jira/server1.js
 /mcp/testrail/server1.js
 
+
 # Ignore everything inside staging/
 staging/**
 

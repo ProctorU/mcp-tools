@@ -741,6 +741,171 @@ async function postTestCasesToJira({ticket}) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Jira Subtask Creation
+// Creates subtasks on a parent Jira ticket from a JSON file
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Converts plain text to Atlassian Document Format (ADF)
+ * @param {string} text - Plain text to convert
+ * @returns {object} ADF document object
+ */
+function textToADF(text) {
+    if (!text) {
+        return {
+            type: "doc",
+            version: 1,
+            content: []
+        };
+    }
+
+    // Split text into paragraphs and create ADF content
+    const paragraphs = text.split('\n\n').filter(p => p.trim());
+    const content = paragraphs.map(paragraph => ({
+        type: "paragraph",
+        content: [{
+            type: "text",
+            text: paragraph.trim()
+        }]
+    }));
+
+    return {
+        type: "doc",
+        version: 1,
+        content: content.length > 0 ? content : [{
+            type: "paragraph",
+            content: [{
+                type: "text",
+                text: text
+            }]
+        }]
+    };
+}
+
+/**
+ * Creates a single subtask on a parent Jira ticket
+ * @param {string} parentKey - The parent ticket key (e.g., PROJ-123)
+ * @param {object} subtaskData - Subtask data with summary, description, priority
+ * @returns {object} Result with success status and created issue key
+ */
+async function createSubtask(parentKey, subtaskData) {
+    try {
+        log(`[Subtask] Creating subtask: "${subtaskData.summary}" on ${parentKey}...`);
+        
+        const projectKey = parentKey.split('-')[0];
+        const url = `https://${cleanDomain}/rest/api/3/issue`;
+        
+        // Build the issue payload
+        const issuePayload = {
+            fields: {
+                project: { key: projectKey },
+                parent: { key: parentKey },
+                issuetype: { name: "Sub-task" },
+                summary: subtaskData.summary
+            }
+        };
+
+        // Add description if provided
+        if (subtaskData.description) {
+            issuePayload.fields.description = textToADF(subtaskData.description);
+        }
+
+        // Omit priority so Jira uses project default (avoids "invalid priority" on projects with different schemes)
+
+        const res = await fetch(url, {
+            method: "POST",
+            headers: {
+                Authorization: "Basic " + Buffer.from(`${Jira_EMAIL}:${Jira_API_TOKEN}`).toString("base64"),
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(issuePayload)
+        });
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            log(`[Subtask] ✗ Failed to create subtask: ${res.status} - ${errorText}`);
+            return { success: false, error: errorText };
+        }
+
+        const result = await res.json();
+        log(`[Subtask] ✓ Created subtask ${result.key}: "${subtaskData.summary}"`);
+        return { success: true, key: result.key, id: result.id };
+    } catch (error) {
+        log(`[Subtask] ✗ Error creating subtask:`, error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Creates multiple subtasks from a JSON file in the staging folder
+ * @param {object} params - Parameters with ticket key
+ * @param {string} params.ticket - The parent ticket key (e.g., PROJ-123)
+ * @returns {object} Result with success counts and created subtask keys
+ */
+async function createSubtasksFromFile({ ticket }) {
+    log(`\n[Subtask] Creating subtasks for ticket: ${ticket}\n`);
+    
+    const file = path.join(process.cwd(), 'staging', 'subtasks.json');
+    
+    if (!fs.existsSync(file)) {
+        throw new Error("Subtasks file not found at: " + file);
+    }
+    
+    const subtasks = JSON.parse(fs.readFileSync(file, 'utf8'));
+    
+    if (!Array.isArray(subtasks) || subtasks.length === 0) {
+        throw new Error("subtasks.json must contain a non-empty array of subtasks");
+    }
+    
+    log(`[Subtask] Found ${subtasks.length} subtask(s) to create\n`);
+
+    let successCount = 0;
+    let failureCount = 0;
+    const createdKeys = [];
+    const errors = [];
+
+    for (let i = 0; i < subtasks.length; i++) {
+        const subtask = subtasks[i];
+        
+        // Validate required field
+        if (!subtask.summary || typeof subtask.summary !== 'string' || subtask.summary.trim() === '') {
+            const errorMsg = `Subtask ${i + 1}: Missing or empty summary`;
+            log(`[Subtask] ✗ ${errorMsg}`);
+            errors.push(errorMsg);
+            failureCount++;
+            continue;
+        }
+
+        const result = await createSubtask(ticket, subtask);
+        
+        if (result.success) {
+            successCount++;
+            createdKeys.push(result.key);
+        } else {
+            failureCount++;
+            errors.push(`Subtask ${i + 1} ("${subtask.summary}"): ${result.error}`);
+        }
+
+        // Brief pause between requests to respect API rate limits
+        if (i < subtasks.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+    }
+
+    const allSuccess = failureCount === 0;
+    log(`\n[Subtask] Summary: ${successCount} created, ${failureCount} failed\n`);
+
+    return {
+        totalSubtasks: subtasks.length,
+        successCount,
+        failureCount,
+        success: allSuccess,
+        createdKeys,
+        error: errors.length > 0 ? errors.join('; ') : undefined
+    };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main Ticket Processing
 // Orchestrates the collection of all ticket data into a unified bundle
 // ─────────────────────────────────────────────────────────────────────────────
@@ -878,7 +1043,7 @@ const {
  
 const server = new Server({
     name: "jira-mcp",
-    version: "1.3.0",
+    version: "1.4.0",
 }, {
     capabilities: {
         tools: {},
@@ -911,6 +1076,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                         ticket: {
                             type: "string",
                             description: "The Jira ticket ID to post comments to (e.g., PROJ-123)"
+                        }
+                    },
+                    required: ["ticket"]
+                }
+            },
+            {
+                name: "createSubtasks",
+                description: "Create subtasks on a Jira ticket from subtasks.json file. Each subtask should have: summary (required), description (optional). Priority uses Jira's project default.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        ticket: {
+                            type: "string",
+                            description: "The parent Jira ticket ID to create subtasks on (e.g., PROJ-123)"
                         }
                     },
                     required: ["ticket"]
@@ -1023,13 +1202,63 @@ ${result.error ? `\nErrors: ${result.error}` : ''}`;
         }
     }
 
+    if (name === "createSubtasks") {
+        try {
+            const result = await createSubtasksFromFile(args);
+            if (result.success) {
+                const summary = `Subtasks Created on ${args.ticket}
+
+✓ Successfully created ${result.successCount} of ${result.totalSubtasks} subtask(s)
+
+Created Subtasks:
+${result.createdKeys.map(key => `  - ${key}`).join('\n')}`;
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: summary
+                        }
+                    ]
+                };
+            } else {
+                const summary = `Subtasks Created on ${args.ticket} (Partial Success)
+
+Created ${result.successCount} of ${result.totalSubtasks} subtask(s)
+Failed: ${result.failureCount} subtask(s)
+
+${result.createdKeys.length > 0 ? `Created Subtasks:\n${result.createdKeys.map(key => `  - ${key}`).join('\n')}` : ''}
+${result.error ? `\nErrors: ${result.error}` : ''}`;
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: summary
+                        }
+                    ],
+                    isError: result.failureCount === result.totalSubtasks
+                };
+            }
+        } catch (error) {
+            log('[Error]', error);
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: `Error: ${error.message}`
+                    }
+                ],
+                isError: true
+            };
+        }
+    }
+
     throw new Error(`Unknown tool: ${name}`);
 });
  
 async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    log("Jira MCP server v1.3.0 running on stdio");
+    log("Jira MCP server v1.4.0 running on stdio");
 }
  
 main().catch((error) => {
