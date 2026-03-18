@@ -33,6 +33,8 @@ These rules apply to all subtask generation from:
   - **Linked Tickets:** Related issues that may contain additional tasks
   - **Confluence Pages:** Detailed specifications, task lists, requirements
   - **Attachments:** Documents containing task breakdowns or checklists
+  - When using RAG, use attachment chunks returned by `queryChunks` as the default attachment source for filenames, mime types, and any extracted attachment text
+  - Read raw attachment payloads from `staging/aggregated.json` only when binary inspection is required
 
 **RULE-SUB-DATA-2: Priority Order**
 - When sources conflict, prioritize in this order:

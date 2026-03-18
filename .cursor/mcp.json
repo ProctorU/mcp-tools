@@ -5,10 +5,19 @@
             "args": ["mcp/jira/server.js"],
             "envFromFile": ".env"
         }, 
+        "atlassian-rovo": {
+            "command": "npx",
+            "args": ["-y", "mcp-remote", "https://mcp.atlassian.com/v1/sse"]
+        },
         "testrail":{
             "command": "node",
             "args":["mcp/testrail/server.js"],
         "envFromFile":".env"
-    }
+    },
+        "rag": {
+            "command": "node",
+            "args": ["mcp/rag/server.js"],
+            "envFromFile": ".env"
+        }
     }
 }

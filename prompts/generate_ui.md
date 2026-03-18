@@ -9,37 +9,39 @@ Generate a comprehensive UI Specification Document from Jira ticket data and scr
 
 ## Input Data Sources
 
-1. **Context Document** (if available):
-   - **If specified:** Read `context/[specified_filename].md`
-   - **If not specified:** Read `context/srs_template.md`
-   - Use for project context and consistency
+### 1. PRIMARY: Vector DB (RAG) — REQUIRED
 
-2. **Aggregated Jira Data** from `staging/aggregated.json`:
-   - `root`: Primary Jira ticket (UI-related information)
-   - `linked`: All linked Jira issues (UI elements, interactions)
-   - `attachments`: **Screenshots are the PRIMARY source** for UI documentation
-   - `confluence`: Design documents, style guides, UI specifications
+**You MUST get context by querying the vector DB**, not by reading the full `staging/aggregated.json`.
 
-3. **SRS Document** (if available):
-   - `staging/srs.md` - Requirements context
+- Call the **RAG MCP tool `queryChunks`** with:
+  - `docType`: `"ui"`
+  - `ticket`: Jira ticket key (e.g. `DEV-123`) — from `staging/aggregated.json` → `root.key` or from the user/command
+  - `project`: Project key (e.g. `DEV`) — prefix of the ticket key
+- Use the **retrieved chunks** (reranked ticket-scoped results, typically up to 15) as the **main source** for UI spec. They contain relevant content from UI notes, Confluence design docs, ticket description, and attachment metadata or extracted attachment text when available.
+- If the tool returns fallback content (e.g. from aggregated.json when confidence is low), use that as well.
+
+### 2. Optional
+
+- **Context document:** Read `context/srs_template.md` or a specified context file for project consistency.
+- **SRS document:** Read `staging/srs.md` (if available) for requirements context.
+- **Screenshots:** RAG may return screenshot or attachment chunks with filenames, mime types, and any extracted text. If you need exact image-only details that are not captured in text, you may read `staging/aggregated.json` → `attachments` for filenames/base64 only when necessary.
 
 ## Output
-Save the generated UI Specification document to: `staging/ui_document.md`
+Save the generated UI Specification document to both:
+- `staging/ui_document.md` for the active working copy
+- `docs/teams/<team>/<ticket>/ui_document.md` for the persistent ticket archive
 
 ## Generation Process
 
-1. **Read `config/rules/ui_rules.md` FIRST** - understand all mandatory rules
-2. Read the context file for project/module context
-3. Read `staging/aggregated.json` for Jira ticket data
-4. Read `staging/srs.md` (if available) for requirements context
-5. **Analyze screenshots FIRST** - they are the PRIMARY source:
-   - Document EVERY UI element visible in screenshots
-   - Use exact text/labels from screenshots
-   - Reference screenshot filenames
-6. Extract data from ALL sources (root, linked, confluence, attachments)
-7. Create UI Specification following ALL rules from `config/rules/ui_rules.md`
-8. Verify against the Quality Checklist in the rules file
-9. Save to `staging/ui_document.md`
+1. **Read `config/rules/ui_rules.md` FIRST** — understand all mandatory rules.
+2. **Get ticket, project, and team:** From `staging/aggregated.json` read `root.key` plus the minimum team fields needed for the archive path:
+   - `root.key` → derive `project` (prefix)
+   - `root.team` if present, otherwise `root.components[0]`, otherwise use `unassigned`; normalize the team folder to lowercase kebab-case for `docs/teams/<team>/...`
+3. **Query the vector DB:** Call RAG tool `queryChunks` with `docType: "ui"`, `ticket`, and `project`. Use the returned chunks as the primary input.
+4. Optionally read context file and `staging/srs.md`.
+5. Create the UI Specification from the **chunk content** (including attachment chunks when present) and any fallback, following ALL rules from `config/rules/ui_rules.md`. Document every UI element; use exact text/labels; reference screenshot filenames when available.
+6. Verify against the Quality Checklist in the rules file.
+7. Save the same final content to both `staging/ui_document.md` and `docs/teams/<team>/<ticket>/ui_document.md`.
 
 ## Key Rules Summary (see rules file for complete details)
 - **Screenshots are PRIMARY source** - document every visible element

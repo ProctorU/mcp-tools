@@ -9,63 +9,31 @@ Generate actionable Jira subtasks from aggregated ticket data (Jira tickets, Con
 
 ## Input Data Sources
 
-1. **Aggregated Jira Data** from `staging/aggregated.json`:
-   - `root`: Primary Jira ticket (description, summary, acceptance criteria)
-   - `linked`: All linked Jira issues (related tasks, dependencies)
-   - `attachments`: All attachments (documents with task breakdowns)
-   - `confluence`: All related Confluence pages (specifications, requirements, checklists)
-   - `comments`: Ticket comments (may contain action items)
+### 1. PRIMARY: Vector DB (RAG) — REQUIRED
 
----
+**You MUST get context by querying the vector DB**, not by reading the full `staging/aggregated.json`.
 
-## CRITICAL: Reading Large Files
+- Call the **RAG MCP tool `queryChunks`** with:
+  - `docType`: `"subtasks"`
+  - `ticket`: Jira ticket key (e.g. `DEV-123`) — from `staging/aggregated.json` → `root.key` or from the user/command
+  - `project`: Project key (e.g. `DEV`) — prefix of the ticket key
+- Use the **retrieved chunks** (reranked ticket-scoped results, typically up to 15) as the **main source** for subtask extraction. They contain the most relevant description, acceptance criteria, linked-ticket context, Confluence content, and attachment metadata or extracted attachment text when available.
+- If the tool returns fallback content (e.g. when confidence is low), use that as well.
 
-**The `aggregated.json` file is often very large (100k+ characters).** You MUST read ALL sections completely.
+### 2. Optional
 
-### Mandatory Reading Strategy
+- **Targeted read:** If you need only the ticket key, read `root.key` from `staging/aggregated.json`. Do not read the full file for content; rely on the chunks.
 
-1. **Search for all sections first** - Use grep/search to locate these keys in the file:
-   - `"root":` - Main ticket (usually at the start)
-   - `"linked":` - Linked tickets
-   - `"confluence":` - Confluence pages (**CRITICAL - often contains detailed breakdowns**)
-   - `"attachments":` - Attached documents
-   - `"comments":` - Ticket comments
+### Priority within chunk content
 
-2. **Read Confluence section COMPLETELY** - Confluence pages often contain:
-   - Sprint-based timelines
-   - Detailed implementation plans
-   - Full API scope and test coverage
-   - Phase/Part breakdowns
-   - Performance targets and exit criteria
-   
-3. **If file is too large to read at once:**
-   - Read in chunks (500-1000 lines at a time)
-   - Continue reading until you've covered ALL sections
-   - Pay special attention to `confluence` array - read each page's `textContent` fully
-
-### Search Commands to Use
-
-Before generating subtasks, run these searches on `staging/aggregated.json`:
-```
-Search for: "confluence"    → Find Confluence section start
-Search for: "textContent"   → Find actual page content
-Search for: "Part 1", "Part 2", "Sprint" → Find phased plans
-Search for: "API", "endpoint" → Find API specifications
-```
-
-### Priority of Data Sources
-
-When the same topic appears in multiple sources, prioritize:
-1. **Confluence pages** (most detailed, often has implementation plans)
-2. **Root ticket description** (official requirements)
-3. **Linked tickets** (additional context)
-4. **Attachments** (supporting documents)
-5. **Comments** (clarifications)
+When the same topic appears in multiple chunks, prioritize: implementation plans and phased breakdowns (e.g. Part 1, Part 2, Sprints), then root ticket requirements, then linked-ticket and comment context.
 
 ---
 
 ## Output
-Save the generated subtasks to: `staging/subtasks.json`
+Save the generated subtasks to both:
+- `staging/subtasks.json` for the active working copy
+- `docs/teams/<team>/<ticket>/subtasks.json` for the persistent ticket archive
 
 ## Output Format (JSON Array)
 ```json
@@ -81,35 +49,33 @@ Save the generated subtasks to: `staging/subtasks.json`
 
 ## Generation Process
 
-1. **Read `config/rules/subtask_rules.md` FIRST** - understand all mandatory rules
+1. **Read `config/rules/subtask_rules.md` FIRST** — understand all mandatory rules.
 
-2. **Read `staging/aggregated.json` COMPLETELY** (Critical!):
-   - **Step 2a:** Search for section locations (`"root":`, `"confluence":`, `"linked":`)
-   - **Step 2b:** Read the `root` section for main ticket details
-   - **Step 2c:** Read the `confluence` section FULLY - search for `"textContent"` and read each page
-   - **Step 2d:** Read `linked` tickets for additional context
-   - **Step 2e:** Check `attachments` and `comments` for supplementary info
-   - **DO NOT STOP** after reading only the root ticket!
+2. **Get ticket, project, and team:** From `staging/aggregated.json` read only the minimum fields needed:
+   - `root.key` → derive `project` (prefix)
+   - `root.team` if present, otherwise `root.components[0]`, otherwise use `unassigned`; normalize the team folder to lowercase kebab-case for `docs/teams/<team>/...`
 
-3. Extract actionable items from ALL sources:
-   - Root ticket description and acceptance criteria
-   - **Confluence pages (PRIORITY - often has detailed plans, phases, timelines)**
-   - Linked tickets (additional context and tasks)
-   - Comments (action items mentioned)
+3. **Query the vector DB:** Call RAG tool `queryChunks` with `docType: "subtasks"`, `ticket`, and `project`. Use the returned chunks as the **primary input**.
 
-4. Identify subtasks using these patterns:
+4. Extract actionable items from the **chunk content** (and any fallback returned by the tool):
+   - Description and acceptance criteria
+   - Implementation plans, phases, timelines (e.g. Part 1, Part 2, Sprints)
+   - Linked-ticket and comment context when present in chunks
+   - Attachment-provided checklists, task hints, or referenced artifacts when present in chunks
+
+5. Identify subtasks using these patterns:
    - Numbered lists (1., 2., 3.)
    - Bullet points with action items
    - Acceptance criteria items
    - Test case scenarios
    - Workflow steps
    - Headings describing distinct tasks
-5. **Detect if ticket contains APIs** (see API Processing section below)
-6. **Assess difficulty** and subdivide if needed (see Difficulty Assessment section below)
-7. Create subtasks following ALL rules from `config/rules/subtask_rules.md`
-8. **Order subtasks by logical dependency** (especially for API tickets)
-9. Verify against the Quality Checklist in the rules file
-10. Save to `staging/subtasks.json`
+6. **Detect if ticket contains APIs** (see API Processing section below)
+7. **Assess difficulty** and subdivide if needed (see Difficulty Assessment section below)
+8. Create subtasks following ALL rules from `config/rules/subtask_rules.md`
+9. **Order subtasks by logical dependency** (especially for API tickets)
+10. Verify against the Quality Checklist in the rules file
+11. Save the same final JSON to both `staging/subtasks.json` and `docs/teams/<team>/<ticket>/subtasks.json`
 
 ---
 

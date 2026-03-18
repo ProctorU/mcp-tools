@@ -12,41 +12,77 @@
         },
         "generate_srs": {
             "title": "Generate SRS document",
-            "description": "Create SRS.md from Jira datausing SRS rules",
+            "description": "Create SRS.md from Jira data using SRS rules and archive by ticket",
             "type": "prompt",
             "prompt":"./prompts/generate_srs.md",
-            "outputFiles": ["staging/srs.md"]
+            "outputFiles": ["staging/srs.md", "docs/teams"]
         },
         "generate_ui": {
             "title": "Generate UI document",
-            "description": "Create UI Document using SRS + UI screenshots+ rules.",
+            "description": "Create UI document using SRS, screenshots, and archive by ticket.",
             "type": "prompt",
             "prompt":"./prompts/generate_ui.md",
-            "outputFiles": ["staging/ui_document.md"]
+            "outputFiles": ["staging/ui_document.md", "docs/teams"]
         },
         "generate_tests": {
             "title": "Generate Test Cases",
-            "description": "Generate Test Cases JSON using SRS + UI + Tests",
+            "description": "Generate test cases using SRS, UI, and archive by ticket",
             "type": "prompt",
             "prompt":"./prompts/generate_tests.md",
-            "outputFiles": ["staging/test_cases.json"]
+            "outputFiles": ["staging/test_cases.json", "staging/test_cases.feature", "docs/teams"]
         },
         "generate_tests_csv": {
             "title": "Generate Test Cases CSV",
-            "description": "Convert test cases from JSON to CSV format",
+            "description": "Convert test cases to CSV format and archive by ticket",
             "type": "prompt",
             "prompt":"./prompts/generate_tests_csv.md",
-            "outputFiles": ["staging/test_cases.csv"]
+            "outputFiles": ["staging/test_cases.csv", "docs/teams"]
+        },
+        "embed-ticket": {
+            "title": "Embed Ticket into Vector DB",
+            "description": "Chunk aggregated.json semantically, embed with MiniLM, store in Vectra. Incremental — skips unchanged chunks.",
+            "type": "action",
+            "params": [
+                {"name": "ticket", "type": "string", "description": "Jira ticket key e.g. DEV-123"},
+                {"name": "project", "type": "string", "description": "Jira project key e.g. DEV"}
+            ],
+            "run": "rag.embedTicket({ticket, project})",
+            "outputFiles": ["vector_db"]
+        },
+        "embed-sprint": {
+            "title": "Embed Sprint into Vector DB",
+            "description": "Fetch all tickets in a Jira sprint and batch-embed them into the vector DB.",
+            "type": "action",
+            "params": [
+                {"name": "boardId", "type": "string", "description": "Jira board ID"},
+                {"name": "sprintId", "type": "string", "description": "Jira sprint ID"},
+                {"name": "project", "type": "string", "description": "Jira project key e.g. DEV"}
+            ],
+            "run": "rag.embedSprint({boardId, sprintId, project})"
+        },
+        "embed-epic": {
+            "title": "Embed Epic into Vector DB",
+            "description": "Fetch all tickets under a Jira epic and batch-embed them.",
+            "type": "action",
+            "params": [
+                {"name": "epicKey", "type": "string", "description": "Epic ticket key e.g. DEV-50"},
+                {"name": "project", "type": "string", "description": "Jira project key e.g. DEV"}
+            ],
+            "run": "rag.embedEpic({epicKey, project})"
         },
         "generate_all": {
             "title": "Generate Everything (SRS + UI + Tests)",
             "type": "sequence",
-            "description": "Fetch Jira --> Generate SRS --> Generate UI --> Generate Tests",
-            "params":[
-                {"name": "ticket", "type": "string"}
+            "description": "Fetch Jira --> Enrich with Rovo --> Embed --> Generate SRS --> Generate UI --> Generate Tests",
+            "params": [
+                {"name": "ticket", "type": "string"},
+                {"name": "functionality", "type": "string"},
+                {"name": "project", "type": "string"}
             ],
             "steps": [
                 "fetch-jira {{ticket}}",
+                "fetch-rovo-context {{functionality}} {{project}}",
+                "embed-ticket {{ticket}} {{project}}",
                 "generate_srs",
                 "generate_ui",
                 "generate_tests",
@@ -71,33 +107,97 @@
             ],
             "run":"jira.postTestCasesToJira({ticket})"
         },
+        "fetch-rovo-context": {
+            "title": "Enrich with Rovo Context",
+            "description": "Use Rovo to discover related tickets/pages, then auto-fetch full Jira and Confluence details into aggregated.json with duplicate checks.",
+            "type": "prompt",
+            "prompt": "./prompts/fetch_rovo_context.md",
+            "params": [
+                {"name": "functionality", "type": "string", "description": "The feature or functionality keyword to search e.g. 'login flow', 'payment gateway'"},
+                {"name": "project", "type": "string", "description": "Jira project key e.g. PROJ"}
+            ],
+            "outputFiles": ["staging/aggregated.json"]
+        },
         "generate_subtasks": {
             "title": "Generate Subtasks",
-            "description": "Generate subtasks.json from Jira data using subtask rules",
+            "description": "Generate subtasks.json from Jira data and archive by ticket",
             "type": "prompt",
             "prompt": "./prompts/generate_subtasks.md",
-            "outputFiles": ["staging/subtasks.json"]
+            "outputFiles": ["staging/subtasks.json", "docs/teams"]
+        },
+        "generate_issues": {
+            "title": "Generate Jira Issue Hierarchy",
+            "description": "Generate issues.json from Jira data and archive by ticket",
+            "type": "prompt",
+            "prompt": "./prompts/generate_issues.md",
+            "params": [
+                {"name": "intent", "type": "string", "description": "Requested child issue intent, e.g. story, task, bug, spike, subtask, or auto"}
+            ],
+            "outputFiles": ["staging/issues.json", "docs/teams"]
         },
         "push_subtasks_to_jira": {
             "title": "Push Subtasks to Jira",
-            "description": "Create subtasks on a Jira ticket from staging/subtasks.json",
+            "description": "Create subtasks on a Jira ticket from staging or archived subtasks.json",
             "type": "action",
             "params": [
                 {"name": "ticket", "type": "string", "description": "The parent Jira ticket ID to create subtasks on (e.g., PROJ-123)"}
             ],
             "run": "jira.createSubtasks({ticket})"
         },
+        "push_issues_to_jira": {
+            "title": "Push Issue Hierarchy to Jira",
+            "description": "Create epic children and nested subtasks from staging or archived issues.json",
+            "type": "action",
+            "params": [
+                {"name": "ticket", "type": "string", "description": "The parent Jira ticket ID that anchors the issue hierarchy (e.g., PROJ-123)"}
+            ],
+            "run": "jira.createHierarchy({ticket})"
+        },
         "createSubtasks": {
             "title": "Generate & Push Subtasks to Jira",
-            "description": "Fetch Jira ticket --> Generate subtasks --> Push to Jira",
+            "description": "Fetch Jira ticket --> Embed --> Generate subtasks --> Push to Jira",
             "type": "sequence",
             "params": [
-                {"name": "ticket", "type": "string", "description": "The Jira ticket ID (e.g., PROJ-123)"}
+                {"name": "ticket", "type": "string", "description": "The Jira ticket ID (e.g., DEV-123)"},
+                {"name": "project", "type": "string", "description": "Jira project key e.g. DEV"}
             ],
             "steps": [
                 "fetch-jira {{ticket}}",
+                "embed-ticket {{ticket}} {{project}}",
                 "generate_subtasks",
                 "push_subtasks_to_jira {{ticket}}"
+            ]
+        },
+        "createIssues": {
+            "title": "Generate & Push Jira Issues",
+            "description": "Fetch Jira ticket --> Embed --> Generate issue hierarchy --> Push to Jira",
+            "type": "sequence",
+            "params": [
+                {"name": "ticket", "type": "string", "description": "The Jira ticket ID (e.g., DEV-123)"},
+                {"name": "project", "type": "string", "description": "Jira project key e.g. DEV"},
+                {"name": "issueType", "type": "string", "description": "Requested child issue type, e.g. story, task, bug, spike, or subtask"}
+            ],
+            "steps": [
+                "fetch-jira {{ticket}}",
+                "embed-ticket {{ticket}} {{project}}",
+                "generate_issues {{issueType}}",
+                "push_issues_to_jira {{ticket}}"
+            ]
+        },
+        "createHierarchy": {
+            "title": "Smart Top-Down Jira Creation",
+            "description": "Fetch Jira ticket --> Embed --> Generate top-down issue hierarchy --> Push to Jira",
+            "type": "sequence",
+            "params": [
+                {"name": "ticket", "type": "string", "description": "The Jira ticket ID (e.g., DEV-123)"},
+                {"name": "project", "type": "string", "description": "Jira project key e.g. DEV"},
+                {"name": "intent", "type": "string", "description": "Requested intent, e.g. story, task, bug, spike, subtask, or auto"}
+            ],
+            "steps": [
+                "fetch-jira {{ticket}}",
+                "embed-ticket {{ticket}} {{project}}",
+                "generate_issues {{intent}}",
+                "push_issues_to_jira {{ticket}}"
             ]
         }
     }

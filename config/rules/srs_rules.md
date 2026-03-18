@@ -55,6 +55,8 @@ These rules apply to all SRS Documents:
   - **Documents:** Extract requirements, specifications, or context from attached documents (PDFs, Word docs, etc.)
   - **Images:** Use images to understand design requirements, mockups, or visual specifications
   - **Other Files:** Review all attachment types for relevant information
+  - When using RAG, treat attachment chunks returned by `queryChunks` as the default attachment source for filenames, mime types, and any extracted attachment text
+  - Read raw attachment payloads from `staging/aggregated.json` only when exact binary inspection is required (for example, screenshot-only details or non-text documents)
   - Reference attachments when documenting requirements derived from them
   - Use attachment filenames to identify the source of requirements
 

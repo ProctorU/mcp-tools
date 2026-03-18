@@ -65,6 +65,8 @@ These rules apply to all UI Specification Documents:
     - Review documents for UI-related requirements or design decisions
   - **Other Files:**
     - Review all attachment types for UI-related information
+  - When using RAG, use attachment chunks returned by `queryChunks` as the default attachment source for filenames, mime types, and any extracted attachment text
+  - Read raw attachment payloads from `staging/aggregated.json` only when image-only or binary-only details are required
   - Reference attachment filenames when documenting UI elements derived from them
 
 **RULE-UI-DATA-5: Screenshot-Based Documentation Priority**
