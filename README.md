@@ -89,6 +89,10 @@ TESTRAIL_API_KEY=your_api_key_here
 | `@push_to_testrail 123` | Push test cases to TestRail | Creates test cases in section |
 | `@generate_all DEV-123 "login flow" DEV` | Full workflow: fetch-jira **+ fetch-rovo-context** + embed + generate all docs. Only this sequence runs Rovo automatically. | All docs generated |
 
+### Agent behavior (Cursor)
+
+Rules in **`.cursorrules`** tell the AI to **run `@commands` directly**: call the MCP tool / write files **without** first narrating the pipeline (“First I will query RAG…”). Outcome: **minimal reply** (paths, counts) unless you ask for detail.
+
 ---
 
 ## Workflows

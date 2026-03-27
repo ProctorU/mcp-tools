@@ -1,0 +1,36 @@
+"Serial no","Title","Test Type","Preconditions","Testing Steps","Expected Result","Created","Reviewer"
+"1","Watcher pop-out displays screen and video for Google session with available recordings","Functional","A Google-class fulfillment exists with completed or in-progress screen/video recordings per product rules. User has access to the fulfillment dashboard (e.g. fulfillment URL pattern similar to go.proctoru.com fulfillments). Browser: supported desktop browser (Chrome preferred).","1. Navigate to the fulfillment detail for the Google session.
+2. Open the watcher window pop-out for that session.
+3. Wait for the watcher UI to finish loading.
+4. Observe whether screen share and video recording areas render content.
+5. Confirm content updates or reflects session activity where applicable.","The watcher window pop-out shows applicable screen share and video recordings (FR-1.1). No blank panel when recordings are available.","2026-03-18 / generate_tests","Pending"
+"2","Google session watcher matches normal Google test-taker baseline appearance","UI/UX","Reference baseline from ticket attachments (inline77823577.png — normal Google test-taker). A separate Google fulfillment with known-good watcher behavior is available for side-by-side comparison, or staging data reproduces baseline.","1. Open watcher pop-out on a known-good Google test-taker session; capture or note layout and presence of screen/video regions.
+2. Open watcher pop-out on the target Google session under test.
+3. Compare presence and layout of recording regions to the baseline reference.
+4. Document any missing video/screen areas or empty panes on the target session.","Target Google session watcher matches functional standard of normal Google test-taker session (FR-1.2). Discrepancies are logged as defects.","2026-03-18 / generate_tests","Pending"
+"3","Watcher shows explicit empty or error state when no recordings exist","Negative","Fulfillment exists where no screen/video recordings are expected or available (early session or recording disabled), with user authorized to open watcher.","1. Navigate to the fulfillment.
+2. Open the watcher window pop-out.
+3. Observe messaging or UI state after load completes.","User sees a clear empty state or error message—not an indefinite spinner or silent blank panel (FR-1.4).","2026-03-18 / generate_tests","Pending"
+"4","Investigation path for specific fulfillment ID and recording pipeline","Functional","Engineering access to fulfillment by ID/URL (e.g. fulfillment UUID in URL). Logging or admin tools available per team process.","1. Identify fulfillment from URL (example pattern: fulfillments/{id}).
+2. Verify recording assets or streams exist server-side for that fulfillment.
+3. Open watcher for same fulfillment and trace whether UI receives recording handles.
+4. Record whether failure is data absence vs. UI binding (FR-1.3).","Team can determine why recordings do or do not appear in watcher for the cited fulfillment; root cause category documented.","2026-03-18 / generate_tests","Pending"
+"5","Watcher load completes within acceptable time with visible feedback","Performance","Google session with recordings; stable network.","1. Open watcher pop-out.
+2. Measure time until first frame of recording content or definitive empty/error state.
+3. Note any loading indicator during fetch.","Load does not hang without feedback (NFR-1, NFR-2). Target SLA set by team; no unbounded wait.","2026-03-18 / generate_tests","Pending"
+"6","Watcher behavior on secondary supported browser","Compatibility","Same fulfillment as serial 1; repeat in Firefox or Edge (non-Chrome supported browser per NFR-6).","1. Log in and open the same fulfillment in the secondary browser.
+2. Open watcher pop-out.
+3. Verify recordings or explicit empty/error state consistent with Chrome behavior.","Behavior consistent with supported client matrix; no browser-specific silent failure for Google watcher.","2026-03-18 / generate_tests","Pending"
+"7","Unauthorized user cannot view another fulfillment's watcher recordings","Security","Two fulfillments A and B; user authorized only for A.","1. As authorized user, open watcher for fulfillment A—confirm access works.
+2. Attempt to open fulfillment B watcher URL or deep link without permission.
+3. Observe access denial or redirect.","Recordings for fulfillment B are not exposed (NFR-5).","2026-03-18 / generate_tests","Pending"
+"8","Watcher handles recording fetch failure with user-visible error","Error Handling","Ability to simulate network interruption or blocked recording CDN (or use broken stream fixture in test env).","1. Open watcher pop-out for a session with recordings.
+2. During load, interrupt network or block recording endpoints per test harness.
+3. Observe watcher UI response.","Error or retry feedback is shown; not a permanent silent blank state (NFR-4, FR-1.4).","2026-03-18 / generate_tests","Pending"
+"9","Regression sample across multiple Google fulfillments for wider-issue assessment","Functional","Access to multiple recent Google sessions (staging or production sample per policy).","1. Select N Google fulfillments (N≥3) with expected recordings.
+2. For each, open watcher pop-out and record pass/fail for video/screen visibility.
+3. Summarize whether failure is isolated or widespread (FR-2.1).","Documented scope: single fulfillment vs. systemic issue; aligns with investigation outcome in DEV-2716.","2026-03-18 / generate_tests","Pending"
+"10","Keyboard focus and basic accessibility of watcher pop-out","Accessibility","Watcher pop-out open; keyboard-only navigation available.","1. Open watcher pop-out.
+2. Use Tab to move focus through interactive controls (close, expand, any player controls).
+3. Verify focus order is logical and focus visible.
+4. If video is decorative-only for ops, note per WCAG team guidance.","Focus can reach primary controls; no keyboard trap in pop-out. Gaps documented for backlog if below standard.","2026-03-18 / generate_tests","Pending"

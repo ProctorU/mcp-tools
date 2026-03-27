@@ -1,0 +1,102 @@
+[
+  {
+    "serial_no": 1,
+    "title": "Watcher pop-out displays screen and video for Google session with available recordings",
+    "test_type": "Functional",
+    "preconditions": "A Google-class fulfillment exists with completed or in-progress screen/video recordings per product rules. User has access to the fulfillment dashboard (e.g. fulfillment URL pattern similar to go.proctoru.com fulfillments). Browser: supported desktop browser (Chrome preferred).",
+    "testing_steps": "1. Navigate to the fulfillment detail for the Google session.\n2. Open the watcher window pop-out for that session.\n3. Wait for the watcher UI to finish loading.\n4. Observe whether screen share and video recording areas render content.\n5. Confirm content updates or reflects session activity where applicable.",
+    "expected_result": "The watcher window pop-out shows applicable screen share and video recordings (FR-1.1). No blank panel when recordings are available.",
+    "created": "2026-03-18 / generate_tests",
+    "reviewer": "Pending"
+  },
+  {
+    "serial_no": 2,
+    "title": "Google session watcher matches normal Google test-taker baseline appearance",
+    "test_type": "UI/UX",
+    "preconditions": "Reference baseline from ticket attachments (inline77823577.png — normal Google test-taker). A separate Google fulfillment with known-good watcher behavior is available for side-by-side comparison, or staging data reproduces baseline.",
+    "testing_steps": "1. Open watcher pop-out on a known-good Google test-taker session; capture or note layout and presence of screen/video regions.\n2. Open watcher pop-out on the target Google session under test.\n3. Compare presence and layout of recording regions to the baseline reference.\n4. Document any missing video/screen areas or empty panes on the target session.",
+    "expected_result": "Target Google session watcher matches functional standard of normal Google test-taker session (FR-1.2). Discrepancies are logged as defects.",
+    "created": "2026-03-18 / generate_tests",
+    "reviewer": "Pending"
+  },
+  {
+    "serial_no": 3,
+    "title": "Watcher shows explicit empty or error state when no recordings exist",
+    "test_type": "Negative",
+    "preconditions": "Fulfillment exists where no screen/video recordings are expected or available (early session or recording disabled), with user authorized to open watcher.",
+    "testing_steps": "1. Navigate to the fulfillment.\n2. Open the watcher window pop-out.\n3. Observe messaging or UI state after load completes.",
+    "expected_result": "User sees a clear empty state or error message—not an indefinite spinner or silent blank panel (FR-1.4).",
+    "created": "2026-03-18 / generate_tests",
+    "reviewer": "Pending"
+  },
+  {
+    "serial_no": 4,
+    "title": "Investigation path for specific fulfillment ID and recording pipeline",
+    "test_type": "Functional",
+    "preconditions": "Engineering access to fulfillment by ID/URL (e.g. fulfillment UUID in URL). Logging or admin tools available per team process.",
+    "testing_steps": "1. Identify fulfillment from URL (example pattern: fulfillments/{id}).\n2. Verify recording assets or streams exist server-side for that fulfillment.\n3. Open watcher for same fulfillment and trace whether UI receives recording handles.\n4. Record whether failure is data absence vs. UI binding (FR-1.3).",
+    "expected_result": "Team can determine why recordings do or do not appear in watcher for the cited fulfillment; root cause category documented.",
+    "created": "2026-03-18 / generate_tests",
+    "reviewer": "Pending"
+  },
+  {
+    "serial_no": 5,
+    "title": "Watcher load completes within acceptable time with visible feedback",
+    "test_type": "Performance",
+    "preconditions": "Google session with recordings; stable network.",
+    "testing_steps": "1. Open watcher pop-out.\n2. Measure time until first frame of recording content or definitive empty/error state.\n3. Note any loading indicator during fetch.",
+    "expected_result": "Load does not hang without feedback (NFR-1, NFR-2). Target SLA set by team; no unbounded wait.",
+    "created": "2026-03-18 / generate_tests",
+    "reviewer": "Pending"
+  },
+  {
+    "serial_no": 6,
+    "title": "Watcher behavior on secondary supported browser",
+    "test_type": "Compatibility",
+    "preconditions": "Same fulfillment as serial 1; repeat in Firefox or Edge (non-Chrome supported browser per NFR-6).",
+    "testing_steps": "1. Log in and open the same fulfillment in the secondary browser.\n2. Open watcher pop-out.\n3. Verify recordings or explicit empty/error state consistent with Chrome behavior.",
+    "expected_result": "Behavior consistent with supported client matrix; no browser-specific silent failure for Google watcher.",
+    "created": "2026-03-18 / generate_tests",
+    "reviewer": "Pending"
+  },
+  {
+    "serial_no": 7,
+    "title": "Unauthorized user cannot view another fulfillment's watcher recordings",
+    "test_type": "Security",
+    "preconditions": "Two fulfillments A and B; user authorized only for A.",
+    "testing_steps": "1. As authorized user, open watcher for fulfillment A—confirm access works.\n2. Attempt to open fulfillment B watcher URL or deep link without permission.\n3. Observe access denial or redirect.",
+    "expected_result": "Recordings for fulfillment B are not exposed (NFR-5).",
+    "created": "2026-03-18 / generate_tests",
+    "reviewer": "Pending"
+  },
+  {
+    "serial_no": 8,
+    "title": "Watcher handles recording fetch failure with user-visible error",
+    "test_type": "Error Handling",
+    "preconditions": "Ability to simulate network interruption or blocked recording CDN (or use broken stream fixture in test env).",
+    "testing_steps": "1. Open watcher pop-out for a session with recordings.\n2. During load, interrupt network or block recording endpoints per test harness.\n3. Observe watcher UI response.",
+    "expected_result": "Error or retry feedback is shown; not a permanent silent blank state (NFR-4, FR-1.4).",
+    "created": "2026-03-18 / generate_tests",
+    "reviewer": "Pending"
+  },
+  {
+    "serial_no": 9,
+    "title": "Regression sample across multiple Google fulfillments for wider-issue assessment",
+    "test_type": "Functional",
+    "preconditions": "Access to multiple recent Google sessions (staging or production sample per policy).",
+    "testing_steps": "1. Select N Google fulfillments (N≥3) with expected recordings.\n2. For each, open watcher pop-out and record pass/fail for video/screen visibility.\n3. Summarize whether failure is isolated or widespread (FR-2.1).",
+    "expected_result": "Documented scope: single fulfillment vs. systemic issue; aligns with investigation outcome in DEV-2716.",
+    "created": "2026-03-18 / generate_tests",
+    "reviewer": "Pending"
+  },
+  {
+    "serial_no": 10,
+    "title": "Keyboard focus and basic accessibility of watcher pop-out",
+    "test_type": "Accessibility",
+    "preconditions": "Watcher pop-out open; keyboard-only navigation available.",
+    "testing_steps": "1. Open watcher pop-out.\n2. Use Tab to move focus through interactive controls (close, expand, any player controls).\n3. Verify focus order is logical and focus visible.\n4. If video is decorative-only for ops, note per WCAG team guidance.",
+    "expected_result": "Focus can reach primary controls; no keyboard trap in pop-out. Gaps documented for backlog if below standard.",
+    "created": "2026-03-18 / generate_tests",
+    "reviewer": "Pending"
+  }
+]

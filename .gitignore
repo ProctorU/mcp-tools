@@ -18,3 +18,7 @@ staging/**
 
 # …but keep a placeholder file so the folder is tracked
 !staging/.gitkeep
+
+# Ignore local vector database contents
+vector_db/**
+!vector_db/.gitkeep
