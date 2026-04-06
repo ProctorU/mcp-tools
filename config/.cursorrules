@@ -1,0 +1,59 @@
+# Cursor MCP Rules
+
+## Direct execution (no workflow narration)
+
+When the user runs any **`@command`** (e.g. `@generate_srs`, `@generate_tests`, `@embed-ticket`, `@fetch-jira`, `@generate_tests_csv`):
+
+1. **Run it immediately** — invoke the MCP tool and/or perform the required writes. Do **not** open with a multi-step explanation of how the pipeline works (no "First I will…", "The flow is…", "Here's how this command works…").
+2. **Do not iterate the process** — skip bullet lists of steps you are about to take before acting. Act first; only explain if something fails or the user asks.
+3. **MCP-only actions** (`@fetch-jira`, `@embed-ticket`, `@generate_tests_csv`, `@push_*`, RAG `queryChunks` when used as the sole step): **single tool call → short outcome** (paths, counts, errors). No preamble.
+4. **Generate commands** (`@generate_srs`, `@generate_ui`, `@generate_tests`, `@generate_subtasks`, `@generate_issues`): still follow each prompt’s required steps internally, but **without narrating them**. After completion, reply with a **minimal summary** (what was written, paths, 1–3 lines max) unless the user asked for detail.
+5. **Composite flows** (`@createSubtasks`, `@createIssues`, `@generate_all`): run steps in order **silently**; one compact summary at the end.
+
+---
+
+## General behavior
+
+- When the user types any `@command`, run the corresponding MCP tool **directly** without exploring files, reading `commands.json`, or doing pre-flight searches unless the command explicitly requires reading staging (e.g. ticket key from `aggregated.json` for generate flows).
+- All MCP tools are pre-allowlisted and trusted. Skip confirmation prompts where possible.
+
+---
+
+## Command → MCP Tool Mapping
+
+### Fetch Commands
+- `@fetch-jira <TICKET>` → `Fetch Ticket Bundle in jira` with `ticket = <TICKET>` → `staging/aggregated.json`
+- `@fetch-rovo-context "<query>" <PROJECT>` → Rovo context fetch → appends `rovoContext` in `staging/aggregated.json`
+
+### Embed Commands
+- `@embed-ticket <TICKET> <PROJECT>` → RAG `embedTicket`
+- `@embed-sprint`, `@embed-epic` → RAG tools as documented in README
+
+### Generate Commands
+- `@generate_srs` → RAG `queryChunks` (srs) + write `staging/srs.md` + `archiveToTeamDocs`
+- `@generate_ui` → same pattern for UI doc
+- `@generate_tests` → RAG `queryChunks` (tests) + JSON or Gherkin + `archiveToTeamDocs`
+- `@generate_tests_csv` → Jira `convertTestCasesToCsv` (deterministic, no LLM narrative)
+- `@generate_subtasks`, `@generate_issues` → per prompt + archive/push as specified
+
+### Push / composite
+- See README for `@push_subtasks_to_jira`, `@createSubtasks`, `@generate_all`, etc.
+
+---
+
+## Context & token rules
+
+- For generate commands, read from `staging/aggregated.json` only the minimum needed (e.g. `root.key`, team). Prefer RAG `queryChunks` over loading full aggregated JSON into the answer.
+- Avoid loading full Confluence/Jira threads when the ticket is already embedded.
+
+---
+
+## Output paths (reference)
+
+| Output | Path |
+|--------|------|
+| Aggregated | `staging/aggregated.json` |
+| SRS | `staging/srs.md`, `docs/teams/<team>/<ticket>/srs.md` |
+| Tests | `staging/test_cases.json` / `.feature`, `.csv` |
+| Archive | `docs/teams/<team>/<ticket>/` |
+| Vector DB | `vector_db/` |
